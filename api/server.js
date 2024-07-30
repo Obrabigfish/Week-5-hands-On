@@ -12,7 +12,7 @@ app.use(cors());
 dotenv.config();
 
 //Running the server
-app.listen(4000, () => {
+app.listen(3000, () => {
     console.log("Server is running on PORT 3000");
 });
 
@@ -74,11 +74,43 @@ app.post('/api/register', async(req, res) => {
         db.query(users, [req.body.email], (err, data) => {
             //if email exists
             if(data.length > 0) return res.status(409).json("User already exists")
+            
+            //Password hashing
+            const salt = bcrypt.genSaltSync(10)
+            const hashedPassword = bcrypt.hashSync(req.body.password, salt)
+
+
+            //if email doesnt exist
+            //Create new user
+            const newUser = `INSERT INTO user(email, username, password) VALUES (?)`
+            value = [req.body.email, req.body.username, hashedPassword]
+            db.query(newUser, [value], (err, data) => {
+                //if insert user fail
+                if(err) return res.status(400).json("something went wrong")
+                //if insert user works
+                res.status(200).json("user created successfully");
+            })
         })
-
-
     } catch (err) {
         res.status(500).json("Internal Server Error");
     }
 });
 
+
+//user Login
+app.post('/api/login', async(req, res) => {
+    try{
+        const users = `SELECT * FROM users WHERE email =?`
+        db.query(users, [req.body.email], (err, data) => {
+            //if user not found
+            if(data.length === 0) return res.status(404).json("User doesnt exist!")
+            //if user exist
+            const isPasswordValid = bcrypt.compareSync(req.body.password, data[0].password)
+            if (!isPasswordValid) return res.status(400).json("invalid password or email")
+            return res.status(201).json("Log in successful")
+        });
+    }
+    catch (err) {
+        res.status(500).json("Internal Server error")
+    }
+});
